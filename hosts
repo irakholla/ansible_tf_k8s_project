@@ -1,0 +1,12 @@
+[masters]
+ec2-34-222-48-143.us-west-2.compute.amazonaws.com
+ec2-54-202-195-62.us-west-2.compute.amazonaws.com
+
+[slaves]
+ec2-35-88-145-237.us-west-2.compute.amazonaws.com
+ec2-54-188-154-27.us-west-2.compute.amazonaws.com
+
+[all_groups:children]
+masters
+slaves
+

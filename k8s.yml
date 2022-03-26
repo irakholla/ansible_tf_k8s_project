@@ -1,0 +1,75 @@
+- name: k8s_preparation
+  become: yes
+
+  hosts: all_groups
+  tasks:
+
+  - name: Copy k8s repo
+    copy:
+      src: ./kubernetes.repo
+      dest: /etc/yum.repos.d/
+
+  - name: Upgrade
+    yum:
+      name: '*'
+      state: latest
+
+  - name: Install firewall and yum utils
+    yum:
+      name:
+        - firewalld
+        - yum-utils
+      state: latest
+
+  - name: Selinux and enable firewall
+    ansible.builtin.shell: |
+      sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
+      systemctl enable firewalld
+      systemctl restart firewalld
+      yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+  - name: Install Docker and k8s
+    yum:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - kubelet
+        - kubeadm
+        - kubectl
+      state: latest
+      enablerepo: "kubernetes-el7-x86_64"
+
+  - name: Enable Docker
+    ansible.builtin.shell: systemctl start docker
+
+- name: k8s_firewall_ports_masters
+  become: yes
+  hosts: masters
+  tasks:
+  - name: Firewall ports masters
+    ansible.builtin.command: "firewall-cmd --permanent --add-port={{item}}"
+    loop:
+      - 6443/tcp
+      - 2379-2380/tcp
+      - 10250/tcp
+      - 10251/tcp
+      - 10252/tcp
+
+- name: k8s_firewall_ports_slaves
+  become: yes
+  hosts: slaves
+  tasks:
+  - name: Firewall ports slaves
+    ansible.builtin.command: "firewall-cmd --permanent --add-port={{item}}"
+    loop:
+      - 10250/tcp
+      - 30000-32767/tcp
+
+- name: k8s_firewall_reload
+  become: yes
+  hosts: all_groups
+  tasks:
+  - name: Firewall reload
+    ansible.builtin.command: firewall-cmd --reload
+
