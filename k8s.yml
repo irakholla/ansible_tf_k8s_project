@@ -14,6 +14,11 @@
       name: '*'
       state: latest
 
+  - name: Upgrade all packages
+    dnf:
+      name: "*"
+      state: latest
+
   - name: Install firewall and yum utils
     yum:
       name:
@@ -26,10 +31,10 @@
       sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config
       systemctl enable firewalld
       systemctl restart firewalld
-      yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
 
   - name: Install Docker and k8s
-    yum:
+    dnf:
       name:
         - docker-ce
         - docker-ce-cli
@@ -38,10 +43,12 @@
         - kubeadm
         - kubectl
       state: latest
-      enablerepo: "kubernetes-el7-x86_64"
+      disable_excludes: "kubernetes"
 
   - name: Enable Docker
-    ansible.builtin.shell: systemctl start docker
+    ansible.builtin.shell: |
+      systemctl start docker
+      systemctl enable docker
 
 - name: k8s_firewall_ports_masters
   become: yes
@@ -66,10 +73,36 @@
       - 10250/tcp
       - 30000-32767/tcp
 
-- name: k8s_firewall_reload
+- name: k8s_firewall_reload, start and enable kubelet
   become: yes
   hosts: all_groups
   tasks:
   - name: Firewall reload
-    ansible.builtin.command: firewall-cmd --reload
+    ansible.builtin.shell: |
+      firewall-cmd --reload
+      systemctl enable kubelet
+      systemctl start kubelet
+
+- name: Initialize k8s cluster
+  become: yes
+  hosts: masters
+  tasks:
+  - name: Initialize k8s cluster
+    ansible.builtin.shell: |
+      kubeadm init --pod-network-cidr=192.168.10.0/16
+      mkdir -p $HOME/.kube
+      cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      chown $(id -u):$(id -g) $HOME/.kube/config
+      kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
+      kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+
+- name: Transfer join file from masters to slaves
+  hosts: slaves
+  become: yes
+  tasks:
+    - name: Transfer file from masters to slaves
+      synchronize:
+        src: $HOME/join_command.sh
+        dest: $HOME/join_command.sh
+      delegate_to: masters
 
