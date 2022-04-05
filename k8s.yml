@@ -49,6 +49,9 @@
     ansible.builtin.shell: |
       systemctl start docker
       systemctl enable docker
+      sudo sed -i 's/ExecStart\=\/usr\/bin\/dockerd \-H fd\:\/\/ \-\-containerd\=\/run\/containerd\/containerd\.sock/ExecStart\=\/usr\/bin\/dockerd \-H fd\:\/\/ \-\-containerd\=\/run\/containerd\/containerd\.sock \-\-exec\-opt native\.cgroupdriver\=systemd/' /lib/systemd/system/docker.service
+      sudo systemctl daemon-reload
+      sudo systemctl restart docker
 
 - name: k8s_firewall_ports_masters
   become: yes
@@ -62,6 +65,7 @@
       - 10250/tcp
       - 10251/tcp
       - 10252/tcp
+      - 10248/tcp
 
 - name: k8s_firewall_ports_slaves
   become: yes
@@ -95,14 +99,30 @@
       chown $(id -u):$(id -g) $HOME/.kube/config
       kubectl create -f https://docs.projectcalico.org/manifests/tigera-operator.yaml
       kubectl create -f https://docs.projectcalico.org/manifests/custom-resources.yaml
+      kubeadm token create --print-join-command > $HOME/join_command.sh
 
-- name: Transfer join file from masters to slaves
-  hosts: slaves
+- name: Transfer join file from masters to local
+  hosts: masters
   become: yes
   tasks:
-    - name: Transfer file from masters to slaves
-      synchronize:
-        src: $HOME/join_command.sh
-        dest: $HOME/join_command.sh
-      delegate_to: masters
+  - name: Transfer join file from masters to local
+    fetch:
+      src: $HOME/join_command.sh
+      dest: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project
+      flat: yes
 
+- name: Transfer join file from local to slaves
+  become: yes
+  hosts: slaves
+  tasks:
+  - name: Transfer join file from local to slaves
+    copy:
+      src: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project/join_command.sh
+      dest: $HOME/join_command.sh
+
+- name: Join slaves
+  become: yes
+  hosts: slaves
+  tasks:
+  - name: Join slaves
+    ansible.builtin.shell: $HOME/join_command.sh

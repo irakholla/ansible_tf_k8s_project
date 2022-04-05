@@ -1,0 +1,25 @@
+- name: Transfer join file from masters to local
+  hosts: masters
+  become: yes
+  tasks:
+  - name: Transfer join file from masters to local
+    copy:
+      src: $HOME/join_command.sh
+      dest: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project/join_command.sh
+      flat: yes
+
+- name: Transfer join file from local to slaves
+  become: yes
+  hosts: slaves
+  tasks:
+  - name: Transfer join file from local to slaves
+    copy:
+      src: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project/join_command.sh
+      dest: $HOME/join_command.sh
+
+- name: Join slaves
+  become: yes
+  hosts: slaves
+  tasks:
+  - name: Join slaves
+    ansible.builtin.shell: $HOME/join_command.sh
