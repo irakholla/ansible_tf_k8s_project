@@ -49,7 +49,7 @@ crl.close()
 # Terraform apply
 
 os.chdir(terraform_path)
-os.system(f"terraform apply -auto-approve -var=\"ingress_cidr_block={b_obj.getvalue().rstrip().decode('utf8')}/32\" -var=\"number_of_slaves={number_of_slaves}\" -var=\"number_of_masters={number_of_masters}\"")
+os.system(f"terraform apply -auto-approve -var=\"ingress_cidr_block_ssh={b_obj.getvalue().rstrip().decode('utf8')}/32\" -var=\"number_of_slaves={number_of_slaves}\" -var=\"number_of_masters={number_of_masters}\"")
 
 # Get DNS names and re-write hosts file
 

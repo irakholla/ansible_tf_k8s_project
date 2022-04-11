@@ -1,11 +1,19 @@
+- name: Initialize k8s cluster
+  become: yes
+  hosts: masters
+  tasks:
+  - name: Initialize k8s cluster
+    ansible.builtin.shell: |
+      kubeadm token create --print-join-command > /tmp/join_command.sh
+
 - name: Transfer join file from masters to local
   hosts: masters
   become: yes
   tasks:
   - name: Transfer join file from masters to local
-    copy:
-      src: $HOME/join_command.sh
-      dest: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project/join_command.sh
+    ansible.builtin.fetch:
+      src: /tmp/join_command.sh
+      dest: /tmp/from_masters/join_command.sh
       flat: yes
 
 - name: Transfer join file from local to slaves
@@ -14,12 +22,14 @@
   tasks:
   - name: Transfer join file from local to slaves
     copy:
-      src: /Users/Ilia_Rakholla/tf_k8s_project/ansible/ansible_tf_k8s_project/join_command.sh
-      dest: $HOME/join_command.sh
+      src: /tmp/from_masters/join_command.sh
+      dest: /tmp/join_command.sh
 
 - name: Join slaves
   become: yes
   hosts: slaves
   tasks:
   - name: Join slaves
-    ansible.builtin.shell: $HOME/join_command.sh
+    ansible.builtin.shell: |
+      chmod +x /tmp/join_command.sh
+      /tmp/join_command.sh
